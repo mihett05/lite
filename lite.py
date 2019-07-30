@@ -26,3 +26,8 @@ class Lite:
                     "delete": lambda: self.app.router.add_delete(route["path"], undefined_function)
                 }.setdefault(method.lower(), lambda: self.app.router.add_options(route["path"], undefined_function))()
         web.run_app(self.app)
+
+
+def send_file(filename):
+    with open(filename) as f:
+        return f.read()
