@@ -2,7 +2,7 @@ from aiohttp import web
 import json
 
 
-class Light:
+class Lite:
     def __init__(self, routes):
         self.routes = routes
         self.app = web.Application()

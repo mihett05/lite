@@ -1,11 +1,11 @@
-from light import Light
+from lite import Lite
 
 
 def hello(request):
     return {"hello": "world"}
 
 
-Light([
+Lite([
     {
         "path": "/",
         "handler": hello
