@@ -50,10 +50,7 @@ def send_file(filename):
 
 
 def static(request, filename):
-    if "static_path" in globals():
-        global static_path
-    else:
-        static_path = "static/"
+    static_path = globals()["static_path"] if "static_path" in globals() else "static/"
     try:
         return send_file(static_path+filename)
     except FileNotFoundError:
