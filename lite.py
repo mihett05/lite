@@ -11,28 +11,15 @@ class Lite:
             if "methods" not in route:
                 route["methods"] = ["get"]
             route["methods"] = frozenset(route["methods"])
-
-            if route["path"] == "*":
-                def error_wrapper(func):
-                    @web.middleware
-                    async def error_middleware(request, handler):
-                        try:
-                            response = await handler(request)
-                            if response.status != 404:
-                                return response
-                        except web.HTTPException:
-                            return await self.wrapper(func)(request)
-                    return error_middleware
-                self.app.middlewares.append(error_wrapper(route["handler"]))
-            else:
-                route["handler"] = self.wrapper(route["handler"])
-                for method in route["methods"]:
-                    {
-                        "get": lambda: self.app.router.add_get(route["path"], route["handler"]),
-                        "post": lambda: self.app.router.add_post(route["path"], route["handler"]),
-                        "put": lambda: self.app.router.add_put(route["path"], route["handler"]),
-                        "delete": lambda: self.app.router.add_delete(route["path"], route["handler"])
-                    }.setdefault(method.lower(), lambda: self.app.router.add_options(route["path"], route["handler"]))()
+            route["path"] = "" if route["path"] == "*" else route["path"]
+            route["handler"] = self.wrapper(route["handler"])
+            for method in route["methods"]:
+                {
+                    "get": lambda: self.app.router.add_get(route["path"], route["handler"]),
+                    "post": lambda: self.app.router.add_post(route["path"], route["handler"]),
+                    "put": lambda: self.app.router.add_put(route["path"], route["handler"]),
+                    "delete": lambda: self.app.router.add_delete(route["path"], route["handler"])
+                }.setdefault(method.lower(), lambda: self.app.router.add_options(route["path"], route["handler"]))()
 
     @staticmethod
     def wrapper(func):
