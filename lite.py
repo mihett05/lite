@@ -2,6 +2,27 @@ from aiohttp import web
 import json
 
 
+def wrapper(func):
+    async def function_wrapper(request):
+        req = {
+            "original": request,
+            "params": dict(request.match_info),
+            "query": dict(request.rel_url.query),
+            "method": request.method,
+            "url": request.url,
+            "headers": dict(request.headers),
+            "cookies": dict(request.cookies),
+        }
+
+        response = func(req, **req["params"])
+        return {
+            dict: web.Response(text=json.dumps(response), content_type="application/json"),
+            str: web.Response(text=str(response), content_type="text/html")
+        }.setdefault(type(response), web.Response(text=str(response), content_type="text/plain"))
+
+    return function_wrapper
+
+
 class Lite:
     def __init__(self, routes):
         self.routes = routes
@@ -10,26 +31,6 @@ class Lite:
             if "methods" not in route:
                 route["methods"] = ["get"]
             route["methods"] = frozenset(route["methods"])
-
-            def wrapper(func):
-                async def function_wrapper(request):
-                    req = {
-                        "original": request,
-                        "params": dict(request.match_info),
-                        "query": dict(request.rel_url.query),
-                        "method": request.method,
-                        "url": request.url,
-                        "headers": dict(request.headers),
-                        "cookies": dict(request.cookies),
-                    }
-
-                    response = func(req, **req["params"])
-                    return {
-                        dict: web.Response(text=json.dumps(response), content_type="application/json"),
-                        str: web.Response(text=str(response), content_type="text/html")
-                    }.setdefault(type(response), web.Response(text=str(response), content_type="text/plain"))
-                return function_wrapper
-
             route["handler"] = wrapper(route["handler"])
 
             for method in route["methods"]:
