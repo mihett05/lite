@@ -5,9 +5,18 @@ def hello(request):
     return {"hello": "world"}
 
 
-Lite([
+def param(request, prm):
+    return {"prm": prm}
+
+
+app = Lite([
     {
         "path": "/",
         "handler": hello
+    },
+    {
+        "path": "/param/{prm}",
+        "handler": param
     }
-])
+]).run()
+

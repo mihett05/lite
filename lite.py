@@ -11,33 +11,50 @@ class Lite:
                 route["methods"] = ["get"]
             route["methods"] = frozenset(route["methods"])
 
-            async def function_wrapper(request):
-                req = {
-                    "original": request,
-                    "params": dict(request.match_info).values(),
-                    "query": dict(request.rel_url.query),
-                    "method": request.method,
-                    "url": request.url,
-                    "headers": dict(request.headers),
-                    "cookies": dict(request.cookies),
-                }
-                
-                response = route["handler"](req, *req["params"])
-                return {
-                    dict: web.Response(text=json.dumps(response), content_type="application/json"),
-                    str: web.Response(text=str(response), content_type="text/html")
-                }.setdefault(type(response), web.Response(text=str(response), content_type="text/plain"))
+            def wrapper(func):
+                async def function_wrapper(request):
+                    req = {
+                        "original": request,
+                        "params": dict(request.match_info),
+                        "query": dict(request.rel_url.query),
+                        "method": request.method,
+                        "url": request.url,
+                        "headers": dict(request.headers),
+                        "cookies": dict(request.cookies),
+                    }
+
+                    response = func(req, **req["params"])
+                    return {
+                        dict: web.Response(text=json.dumps(response), content_type="application/json"),
+                        str: web.Response(text=str(response), content_type="text/html")
+                    }.setdefault(type(response), web.Response(text=str(response), content_type="text/plain"))
+                return function_wrapper
+
+            route["handler"] = wrapper(route["handler"])
 
             for method in route["methods"]:
                 {
-                    "get": lambda: self.app.router.add_get(route["path"], function_wrapper),
-                    "post": lambda: self.app.router.add_post(route["path"], function_wrapper),
-                    "put": lambda: self.app.router.add_put(route["path"], function_wrapper),
-                    "delete": lambda: self.app.router.add_delete(route["path"], function_wrapper)
-                }.setdefault(method.lower(), lambda: self.app.router.add_options(route["path"], function_wrapper))()
-        web.run_app(self.app)
+                    "get": lambda: self.app.router.add_get(route["path"], route["handler"]),
+                    "post": lambda: self.app.router.add_post(route["path"], route["handler"]),
+                    "put": lambda: self.app.router.add_put(route["path"], route["handler"]),
+                    "delete": lambda: self.app.router.add_delete(route["path"], route["handler"])
+                }.setdefault(method.lower(), lambda: self.app.router.add_options(route["path"], route["handler"]))()
+
+    def run(self, host="127.0.0.1", port=3000):
+        web.run_app(self.app, host=host, port=port)
 
 
 def send_file(filename):
     with open(filename) as f:
         return f.read()
+
+
+def static(request, filename):
+    if "static_path" in globals():
+        global static_path
+    else:
+        static_path = "static/"
+    try:
+        return send_file(static_path+filename)
+    except FileNotFoundError:
+        return "File Not Found"
