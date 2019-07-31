@@ -9,7 +9,7 @@ def param(request, prm):
     return {"prm": prm}
 
 
-app = Lite([
+Lite([
     {
         "path": "/",
         "handler": hello
