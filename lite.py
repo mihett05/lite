@@ -45,6 +45,10 @@ class Lite:
             }.setdefault(type(response), web.Response(text=str(response), content_type="text/plain"))
         return function_wrapper
 
+    @web.middleware
+    async def route_handler(self, request, handler):
+        response = await(handler)
+
     def run(self, host="127.0.0.1", port=3000):
         web.run_app(self.app, host=host, port=port)
 
