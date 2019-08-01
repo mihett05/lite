@@ -37,6 +37,10 @@ class Lite:
             response = func(req, **req["params"])
             return {
                 dict: web.Response(text=json.dumps(response), content_type="application/json"),
+                list: web.Response(text=json.dumps(response), content_type="application/json"),
+                tuple: web.Response(text=json.dumps(response), content_type="application/json"),
+                set: web.Response(text=json.dumps(response), content_type="application/json"),
+                frozenset: web.Response(text=json.dumps(response), content_type="application/json"),
                 str: web.Response(text=str(response), content_type="text/html")
             }.setdefault(type(response), web.Response(text=str(response), content_type="text/plain"))
         return function_wrapper
@@ -67,6 +71,10 @@ class LiteErrorHandler:
         response = func(req, error, msg)
         return {
             dict: web.Response(text=json.dumps(response), content_type="application/json"),
+            list: web.Response(text=json.dumps(response), content_type="application/json"),
+            tuple: web.Response(text=json.dumps(response), content_type="application/json"),
+            set: web.Response(text=json.dumps(response), content_type="application/json"),
+            frozenset: web.Response(text=json.dumps(response), content_type="application/json"),
             str: web.Response(text=str(response), content_type="text/html")
         }.setdefault(type(response), web.Response(text=str(response), content_type="text/plain"))
 
