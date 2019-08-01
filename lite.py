@@ -5,7 +5,7 @@ import json
 class Lite:
     def __init__(self, routes, error_handlers=()):
         self.routes = routes
-        self.app = web.Application(middlewares=[*error_handlers])
+        self.app = web.Application(middlewares=[*error_handlers, self.route_handler])
 
         for route in routes:
             if "methods" not in route:
@@ -47,7 +47,9 @@ class Lite:
 
     @web.middleware
     async def route_handler(self, request, handler):
-        response = await(handler)
+        print(request)
+        response = await handler(request)
+        return response
 
     def run(self, host="127.0.0.1", port=3000):
         web.run_app(self.app, host=host, port=port)
