@@ -31,11 +31,9 @@ class Lite:
     @staticmethod
     def get_number_of_section(path, string):
         sections = path.split("/")
-        for i in range(len(sections)):
-            if sections[i] == string:
-                return i
+        return list(filter(lambda x: sections[x] == string, range(len(sections))))[0]
 
-    async def raise_error(self, request, status, exception, for_return=None):
+    async def raise_http_error(self, request, status, exception, for_return=None):
         handlers = list(filter(lambda x: x["status"] == status, self.error_handlers))
         if len(handlers) > 1:
             raise web.HTTPMultipleChoices(request.rel_url)
@@ -84,7 +82,7 @@ class Lite:
             elif len(found_routes_other) == 1:
                 return await found_routes_other[0]["handler"](request)
             elif len(found_routes_other) == 0:
-                return await self.raise_error(request, "404", web.HTTPNotFound)
+                return await self.raise_http_error(request, "404", web.HTTPNotFound)
 
     def run(self, host="127.0.0.1", port=3000):
         web.run_app(self.app, host=host, port=port)
