@@ -4,34 +4,42 @@ import re
 
 
 class Lite:
-    def __init__(self, routes, error_handlers=()):
+    def __init__(self, routes):
         self.routes = routes
         self.app = web.Application(middlewares=[self.route_handler])
-        self.error_handlers = error_handlers
+        self.error_handlers = []
 
         for route in routes:
             if "methods" not in route:
                 route["methods"] = ["get"]
             route["methods"] = frozenset(route["methods"])
             route["path"] = "" if route["path"] == "*" else route["path"]
+            route["handler"] = self.wrapper(route["handler"])
+            if not route["path"][0] == "/" and not route["path"] == "":
+                if re.fullmatch(r"\d+", route["path"]) is not None:
+                    self.error_handlers.append({
+                        "status": route["path"], "methods": route["methods"], "handler": route["handler"]
+                    })
+                    self.routes.remove(route)
+
             route["params"] = re.findall(r"{int:([\s\S]+?)}", route["path"])
             route["path"] = re.sub(r"{int:([\s\S]+?)}", r"(\\d+?)", route["path"])
-            route["handler"] = self.wrapper(route["handler"])
-            #for method in route["methods"]:
-            #    {
-            #        "get": lambda: self.app.router.add_get(route["path"], route["handler"]),
-            #        "post": lambda: self.app.router.add_post(route["path"], route["handler"]),
-            #        "put": lambda: self.app.router.add_put(route["path"], route["handler"]),
-            #        "delete": lambda: self.app.router.add_delete(route["path"], route["handler"])
-            #    }.setdefault(method.lower(), lambda: self.app.router.add_options(route["path"], route["handler"]))()
+
+    async def raise_error(self, request, status, exception, for_return=None):
+        handlers = list(filter(lambda x: x["status"] == status, self.error_handlers))
+        if len(handlers) > 1:
+            raise web.HTTPMultipleChoices(request.rel_url)
+        elif len(handlers) == 1:
+            return await handlers[0]["handler"](request, for_return)
+        elif len(handlers) == 0:
+            raise exception
 
     @staticmethod
     def wrapper(func):
-        async def function_wrapper(request, params):
+        async def function_wrapper(request, params=None):
             req = {
                 "original": request,
-                #"params": dict(request.match_info),
-                "params": params,
+                "params": params if params is not None else {},
                 "query": dict(request.rel_url.query),
                 "method": request.method,
                 "url": request.url,
@@ -63,65 +71,12 @@ class Lite:
             if len(found_routes_other) > 1:
                 raise web.HTTPMultipleChoices(request.rel_url)
             elif len(found_routes_other) == 1:
-                return await found_routes_other[0]["handler"](request,
-                                                              dict(zip(found_routes_other[0]["params"],
-                                                                       re.findall(r"(\d+)", str(request.rel_url)))))
+                return await found_routes_other[0]["handler"](request)
             elif len(found_routes_other) == 0:
-                raise web.HTTPNotFound()
+                return await self.raise_error(request, "404", web.HTTPNotFound)
 
     def run(self, host="127.0.0.1", port=3000):
         web.run_app(self.app, host=host, port=port)
-
-
-class LiteErrorHandler:
-    def __init__(self, handlers):
-        self.handlers = handlers
-        self._middlewares = []
-        for handler in handlers:
-            self._middlewares.append(self.error_wrapper(handler["handler"], handler["error"]))
-
-    @staticmethod
-    async def wrapper(func, request, error, msg):
-        req = {
-            "original": request,
-            "params": dict(request.match_info),
-            "query": dict(request.rel_url.query),
-            "method": request.method,
-            "url": request.url,
-            "headers": dict(request.headers),
-            "cookies": dict(request.cookies),
-        }
-
-        response = func(req, error, msg)
-        return {
-            dict: web.Response(text=json.dumps(response), content_type="application/json"),
-            list: web.Response(text=json.dumps(response), content_type="application/json"),
-            tuple: web.Response(text=json.dumps(response), content_type="application/json"),
-            set: web.Response(text=json.dumps(response), content_type="application/json"),
-            frozenset: web.Response(text=json.dumps(response), content_type="application/json"),
-            str: web.Response(text=str(response), content_type="text/html")
-        }.setdefault(type(response), web.Response(text=str(response), content_type="text/plain"))
-
-    def error_wrapper(self, func, code):
-        @web.middleware
-        async def error_middleware(request, handler):
-            try:
-                response = await handler(request)
-                if response.status != code:
-                    return response
-                status = response.status
-                message = response.message
-            except web.HTTPException as ex:
-                status = ex.status
-                message = ex.reason
-                if status != code:
-                    raise
-            return await self.wrapper(func, request, status, message)
-        return error_middleware
-
-    @property
-    def middlewares(self):
-        return self._middlewares
 
 
 def send_file(filename):
