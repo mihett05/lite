@@ -22,8 +22,18 @@ class Lite:
                     })
                     self.routes.remove(route)
 
-            route["params"] = re.findall(r"{int:([\s\S]+?)}", route["path"])
-            route["path"] = re.sub(r"{int:([\s\S]+?)}", r"(\\d+?)", route["path"])
+            route["params"] = dict(map(lambda x: (x.split(":")[1],
+                                                  self.get_number_of_section(route["path"], "{"+x+"}")),
+                                       re.findall(r"{([\s\S]+?)}", route["path"])))
+            route["path"] = re.sub(r"{int:([\S]+?)}", r"(\\d+?)", route["path"])
+            route["path"] = re.sub(r"{str:([\S]+?)}", r"(.+?)", route["path"])
+
+    @staticmethod
+    def get_number_of_section(path, string):
+        sections = path.split("/")
+        for i in range(len(sections)):
+            if sections[i] == string:
+                return i
 
     async def raise_error(self, request, status, exception, for_return=None):
         handlers = list(filter(lambda x: x["status"] == status, self.error_handlers))
@@ -64,8 +74,9 @@ class Lite:
         if len(found_routes) > 1:
             raise web.HTTPMultipleChoices(request.rel_url)
         elif len(found_routes) == 1:
-            return await found_routes[0]["handler"](request, dict(zip(found_routes[0]["params"],
-                                                                      re.findall(r"(\d+)", str(request.rel_url)))))
+
+            return await found_routes[0]["handler"](request, {k: str(request.rel_url).split("/")[v]
+                                                              for k, v in found_routes[0]["params"].items()})
         elif len(found_routes) == 0:
             found_routes_other = list(filter(lambda x: x["path"] == "", self.routes))
             if len(found_routes_other) > 1:

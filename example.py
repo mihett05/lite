@@ -15,7 +15,7 @@ Lite([
         "handler": hello
     },
     {
-        "path": "/param/{int:prm}",
+        "path": "/param/{str:prm}",
         "handler": param
     }
 ]).run()
