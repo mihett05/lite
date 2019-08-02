@@ -1,32 +1,37 @@
 from aiohttp import web
 import json
+import re
 
 
 class Lite:
     def __init__(self, routes, error_handlers=()):
         self.routes = routes
-        self.app = web.Application(middlewares=[*error_handlers, self.route_handler])
+        self.app = web.Application(middlewares=[self.route_handler])
+        self.error_handlers = error_handlers
 
         for route in routes:
             if "methods" not in route:
                 route["methods"] = ["get"]
             route["methods"] = frozenset(route["methods"])
             route["path"] = "" if route["path"] == "*" else route["path"]
+            route["params"] = re.findall(r"{int:([\s\S]+?)}", route["path"])
+            route["path"] = re.sub(r"{int:([\s\S]+?)}", r"(\\d+?)", route["path"])
             route["handler"] = self.wrapper(route["handler"])
-            for method in route["methods"]:
-                {
-                    "get": lambda: self.app.router.add_get(route["path"], route["handler"]),
-                    "post": lambda: self.app.router.add_post(route["path"], route["handler"]),
-                    "put": lambda: self.app.router.add_put(route["path"], route["handler"]),
-                    "delete": lambda: self.app.router.add_delete(route["path"], route["handler"])
-                }.setdefault(method.lower(), lambda: self.app.router.add_options(route["path"], route["handler"]))()
+            #for method in route["methods"]:
+            #    {
+            #        "get": lambda: self.app.router.add_get(route["path"], route["handler"]),
+            #        "post": lambda: self.app.router.add_post(route["path"], route["handler"]),
+            #        "put": lambda: self.app.router.add_put(route["path"], route["handler"]),
+            #        "delete": lambda: self.app.router.add_delete(route["path"], route["handler"])
+            #    }.setdefault(method.lower(), lambda: self.app.router.add_options(route["path"], route["handler"]))()
 
     @staticmethod
     def wrapper(func):
-        async def function_wrapper(request):
+        async def function_wrapper(request, params):
             req = {
                 "original": request,
-                "params": dict(request.match_info),
+                #"params": dict(request.match_info),
+                "params": params,
                 "query": dict(request.rel_url.query),
                 "method": request.method,
                 "url": request.url,
@@ -46,10 +51,23 @@ class Lite:
         return function_wrapper
 
     @web.middleware
-    async def route_handler(self, request, handler):
-        print(request)
-        response = await handler(request)
-        return response
+    async def route_handler(self, request, handler=None):
+        found_routes = list(filter(lambda x: re.fullmatch(x["path"], str(request.rel_url)) is not None, self.routes))
+        if len(found_routes) > 1:
+            raise web.HTTPMultipleChoices(request.rel_url)
+        elif len(found_routes) == 1:
+            return await found_routes[0]["handler"](request, dict(zip(found_routes[0]["params"],
+                                                                      re.findall(r"(\d+)", str(request.rel_url)))))
+        elif len(found_routes) == 0:
+            found_routes_other = list(filter(lambda x: x["path"] == "", self.routes))
+            if len(found_routes_other) > 1:
+                raise web.HTTPMultipleChoices(request.rel_url)
+            elif len(found_routes_other) == 1:
+                return await found_routes_other[0]["handler"](request,
+                                                              dict(zip(found_routes_other[0]["params"],
+                                                                       re.findall(r"(\d+)", str(request.rel_url)))))
+            elif len(found_routes_other) == 0:
+                raise web.HTTPNotFound()
 
     def run(self, host="127.0.0.1", port=3000):
         web.run_app(self.app, host=host, port=port)

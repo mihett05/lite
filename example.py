@@ -1,4 +1,4 @@
-from lite import Lite, LiteErrorHandler
+from lite import Lite
 
 
 def hello(request):
@@ -15,7 +15,7 @@ Lite([
         "handler": hello
     },
     {
-        "path": "/param/{prm}",
+        "path": "/param/{int:prm}",
         "handler": param
     }
 ]).run()
