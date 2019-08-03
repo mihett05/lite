@@ -2,6 +2,7 @@ from lite import Lite
 
 
 def hello(request):
+	print(request)
     return {"hello": "world"}
 
 
